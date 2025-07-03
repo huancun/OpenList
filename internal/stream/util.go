@@ -1,11 +1,13 @@
 package stream
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/net"
@@ -138,4 +140,60 @@ func CacheFullInTempFileAndHash(stream model.FileStreamer, hashType *utils.HashT
 		return nil, "", err
 	}
 	return tmpF, hex.EncodeToString(h.Sum(nil)), err
+}
+
+type StreamSectionReader struct {
+	file      model.FileStreamer
+	off       int64
+	bufs      [][]byte
+	bufMaxLen int
+	m         sync.Mutex
+}
+
+func NewStreamSectionReader(file model.FileStreamer, bufMaxLen, thread int) (*StreamSectionReader, error) {
+	ss := &StreamSectionReader{file: file, bufMaxLen: bufMaxLen}
+	if file.GetFile() == nil {
+		if bufMaxLen > 64*utils.KB {
+			_, err := file.CacheFullInTempFile()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			ss.bufMaxLen = bufMaxLen
+			ss.bufs = make([][]byte, max(1, thread))
+		}
+	}
+	return ss, nil
+}
+
+func (ss *StreamSectionReader) getBuf(index int) []byte {
+	index = index % len(ss.bufs)
+	buf := ss.bufs[index]
+	if buf == nil {
+		buf = make([]byte, ss.bufMaxLen)
+		ss.bufs[index] = buf
+	}
+	return buf
+}
+func (ss *StreamSectionReader) GetSectionReader(off, length int64, index int) (io.ReadSeeker, error) {
+	ss.m.Lock()
+	defer ss.m.Unlock()
+	var cache io.ReaderAt = ss.file.GetFile()
+	if cache == nil {
+		if off != ss.off {
+			return nil, fmt.Errorf("stream not cached: request offset %d != current offset %d", off, ss.off)
+		}
+		buf := ss.getBuf(index)[:length]
+		n, err := io.ReadFull(ss.file, buf)
+		if err != nil {
+			return nil, err
+		}
+		if int64(n) != length {
+			return nil, fmt.Errorf("stream read did not get all data, expect =%d ,actual =%d", length, n)
+		}
+		ss.off += int64(n)
+		off = 0
+		cache = bytes.NewReader(buf)
+	}
+	return io.NewSectionReader(cache, off, length), nil
 }

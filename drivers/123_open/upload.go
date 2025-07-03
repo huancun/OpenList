@@ -2,6 +2,7 @@ package _123_open
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -9,11 +10,12 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/drivers/base"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
+	"github.com/OpenListTeam/OpenList/v4/internal/stream"
 	"github.com/OpenListTeam/OpenList/v4/pkg/errgroup"
-	"github.com/OpenListTeam/OpenList/v4/pkg/http_range"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 	"github.com/avast/retry-go"
 	"github.com/go-resty/resty/v2"
+	"github.com/sirupsen/logrus"
 )
 
 func (d *Open123) create(parentFileID int64, filename string, etag string, size int64, duplicate int, containDir bool) (*UploadCreateResp, error) {
@@ -79,11 +81,16 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 	size := file.GetSize()
 	chunkSize := createResp.Data.SliceSize
 	uploadNums := (size + chunkSize - 1) / chunkSize
-	threadG, uploadCtx := errgroup.NewGroupWithContext(ctx, d.UploadThread,
+	thread := min(int(uploadNums), d.UploadThread)
+	threadG, uploadCtx := errgroup.NewOrderedGroupWithContext(ctx, thread,
 		retry.Attempts(3),
 		retry.Delay(time.Second),
 		retry.DelayType(retry.BackOffDelay))
 
+	ss, err := stream.NewStreamSectionReader(file, int(chunkSize), thread)
+	if err != nil {
+		return err
+	}
 	for partIndex := int64(0); partIndex < uploadNums; partIndex++ {
 		if utils.IsCanceled(uploadCtx) {
 			return ctx.Err()
@@ -92,21 +99,24 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 		partNumber := partIndex + 1 // 分片号从1开始
 		offset := partIndex * chunkSize
 		size := min(chunkSize, size-offset)
-		limitedReader, err := file.RangeRead(http_range.Range{
-			Start:  offset,
-			Length: size})
-		if err != nil {
-			return err
-		}
-		limitedReader = driver.NewLimitedUploadStream(ctx, limitedReader)
+		var reader io.ReadSeeker
 
 		threadG.Go(func(ctx context.Context) error {
+			if reader == nil {
+				var err error
+				reader, err = ss.GetSectionReader(offset, size, int(partIndex))
+				logrus.Warnf("off:%d,size:%d ,idx:%d", offset, size, partIndex)
+				if err != nil {
+					return err
+				}
+			}
+			reader.Seek(0, io.SeekStart)
 			uploadPartUrl, err := d.url(createResp.Data.PreuploadID, partNumber)
 			if err != nil {
 				return err
 			}
 
-			req, err := http.NewRequestWithContext(ctx, "PUT", uploadPartUrl, limitedReader)
+			req, err := http.NewRequestWithContext(ctx, "PUT", uploadPartUrl, driver.NewLimitedUploadStream(ctx, reader))
 			if err != nil {
 				return err
 			}

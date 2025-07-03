@@ -19,11 +19,20 @@ type Group struct {
 
 	wg  sync.WaitGroup
 	sem chan token
+
+	startChan chan token
 }
 
 func NewGroupWithContext(ctx context.Context, limit int, retryOpts ...retry.Option) (*Group, context.Context) {
 	ctx, cancel := context.WithCancelCause(ctx)
 	return (&Group{cancel: cancel, ctx: ctx, opts: append(retryOpts, retry.Context(ctx))}).SetLimit(limit), ctx
+}
+
+func NewOrderedGroupWithContext(ctx context.Context, limit int, retryOpts ...retry.Option) (*Group, context.Context) {
+	group, ctx := NewGroupWithContext(ctx, limit, retryOpts...)
+	group.startChan = make(chan token, 1)
+	group.startChan <- token{}
+	return group, ctx
 }
 
 func (g *Group) done() {
@@ -40,12 +49,18 @@ func (g *Group) Wait() error {
 }
 
 func (g *Group) Go(f func(ctx context.Context) error) {
+	if g.startChan != nil {
+		<-g.startChan
+	}
 	if g.sem != nil {
 		g.sem <- token{}
 	}
 
 	g.wg.Add(1)
 	go func() {
+		if g.startChan != nil {
+			g.startChan <- token{}
+		}
 		defer g.done()
 		if err := retry.Do(func() error { return f(g.ctx) }, g.opts...); err != nil {
 			g.cancel(err)
