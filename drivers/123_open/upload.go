@@ -100,7 +100,7 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 		offset := partIndex * chunkSize
 		size := min(chunkSize, size-offset)
 		var reader io.ReadSeeker
-
+		var rateLimitedRd io.Reader
 		threadG.Go(func(ctx context.Context) error {
 			if reader == nil {
 				var err error
@@ -109,6 +109,7 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 				if err != nil {
 					return err
 				}
+				rateLimitedRd = driver.NewLimitedUploadStream(ctx, reader)
 			}
 			reader.Seek(0, io.SeekStart)
 			uploadPartUrl, err := d.url(createResp.Data.PreuploadID, partNumber)
@@ -116,7 +117,7 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 				return err
 			}
 
-			req, err := http.NewRequestWithContext(ctx, "PUT", uploadPartUrl, driver.NewLimitedUploadStream(ctx, reader))
+			req, err := http.NewRequestWithContext(ctx, "PUT", uploadPartUrl, rateLimitedRd)
 			if err != nil {
 				return err
 			}
