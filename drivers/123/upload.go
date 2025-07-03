@@ -115,10 +115,10 @@ func (d *Pan123) newUpload(ctx context.Context, upReq *UploadResp, file model.Fi
 				return err
 			}
 			err = d.uploadS3Chunk(ctx, upReq, s3PreSignedUrls, j, end, reader, curSize, false, getS3UploadUrl)
+			ss.RecycleSectionReader(reader)
 			if err != nil {
 				return err
 			}
-			ss.RecycleSectionReader(reader)
 			up(float64(j) * 100 / float64(chunkCount))
 		}
 	}
@@ -131,6 +131,7 @@ func (d *Pan123) uploadS3Chunk(ctx context.Context, upReq *UploadResp, s3PreSign
 	if uploadUrl == "" {
 		return fmt.Errorf("upload url is empty, s3PreSignedUrls: %+v", s3PreSignedUrls)
 	}
+	reader.Seek(0, io.SeekStart)
 	req, err := http.NewRequest("PUT", uploadUrl, driver.NewLimitedUploadStream(ctx, reader))
 	if err != nil {
 		return err
@@ -154,7 +155,6 @@ func (d *Pan123) uploadS3Chunk(ctx context.Context, upReq *UploadResp, s3PreSign
 		}
 		s3PreSignedUrls.Data.PreSignedUrls = newS3PreSignedUrls.Data.PreSignedUrls
 		// retry
-		reader.Seek(0, io.SeekStart)
 		return d.uploadS3Chunk(ctx, upReq, s3PreSignedUrls, cur, end, reader, curSize, true, getS3UploadUrl)
 	}
 	if res.StatusCode != http.StatusOK {

@@ -120,10 +120,10 @@ func (d *Open115) multpartUpload(ctx context.Context, stream model.FileStreamer,
 			retry.Attempts(3),
 			retry.DelayType(retry.BackOffDelay),
 			retry.Delay(time.Second))
+		ss.RecycleSectionReader(rd)
 		if err != nil {
 			return err
 		}
-		ss.RecycleSectionReader(rd)
 
 		if i == partNum {
 			offset = fileSize
