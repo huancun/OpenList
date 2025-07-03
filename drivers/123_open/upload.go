@@ -15,7 +15,6 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 	"github.com/avast/retry-go"
 	"github.com/go-resty/resty/v2"
-	"github.com/sirupsen/logrus"
 )
 
 func (d *Open123) create(parentFileID int64, filename string, etag string, size int64, duplicate int, containDir bool) (*UploadCreateResp, error) {
@@ -87,7 +86,7 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 		retry.Delay(time.Second),
 		retry.DelayType(retry.BackOffDelay))
 
-	ss, err := stream.NewStreamSectionReader(file, int(chunkSize), thread)
+	ss, err := stream.NewStreamSectionReader(file, int(chunkSize))
 	if err != nil {
 		return err
 	}
@@ -101,11 +100,10 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 		size := min(chunkSize, size-offset)
 		var reader io.ReadSeeker
 		var rateLimitedRd io.Reader
-		threadG.Go(func(ctx context.Context) error {
+		threadG.GoWithResult(func(ctx context.Context) error {
 			if reader == nil {
 				var err error
-				reader, err = ss.GetSectionReader(offset, size, int(partIndex))
-				logrus.Warnf("off:%d,size:%d ,idx:%d", offset, size, partIndex)
+				reader, err = ss.GetSectionReader(offset, size)
 				if err != nil {
 					return err
 				}
@@ -133,6 +131,10 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 			progress := 10.0 + 85.0*float64(threadG.Success())/float64(uploadNums)
 			up(progress)
 			return nil
+		}, func(err error) {
+			if reader != nil {
+				ss.RecycleSectionReader(reader)
+			}
 		})
 	}
 

@@ -49,6 +49,10 @@ func (g *Group) Wait() error {
 }
 
 func (g *Group) Go(f func(ctx context.Context) error) {
+	g.GoWithResult(f, nil)
+}
+
+func (g *Group) GoWithResult(f func(ctx context.Context) error, result func(err error)) {
 	if g.startChan != nil {
 		<-g.startChan
 	}
@@ -62,10 +66,15 @@ func (g *Group) Go(f func(ctx context.Context) error) {
 			g.startChan <- token{}
 		}
 		defer g.done()
-		if err := retry.Do(func() error { return f(g.ctx) }, g.opts...); err != nil {
+		err := retry.Do(func() error { return f(g.ctx) }, g.opts...)
+		if result != nil {
+			result(err)
+		}
+		if err != nil {
 			g.cancel(err)
 		}
 	}()
+
 }
 
 func (g *Group) TryGo(f func(ctx context.Context) error) bool {

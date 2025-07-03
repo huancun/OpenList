@@ -223,7 +223,7 @@ func (d *AliyundriveOpen) upload(ctx context.Context, dstDir model.Obj, stream m
 		preTime := time.Now()
 		var offset, length int64 = 0, partSize
 		//var length
-		ss, err := streamPkg.NewStreamSectionReader(stream, int(partSize), 1)
+		ss, err := streamPkg.NewStreamSectionReader(stream, int(partSize))
 		if err != nil {
 			return nil, err
 		}
@@ -242,7 +242,7 @@ func (d *AliyundriveOpen) upload(ctx context.Context, dstDir model.Obj, stream m
 			if remain := stream.GetSize() - offset; length > remain {
 				length = remain
 			}
-			rd, err := ss.GetSectionReader(offset, length, i)
+			rd, err := ss.GetSectionReader(offset, length)
 			if err != nil {
 				return nil, err
 			}

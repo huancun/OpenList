@@ -256,7 +256,7 @@ func (d *GoogleDrive) getFiles(id string) ([]File, error) {
 func (d *GoogleDrive) chunkUpload(ctx context.Context, file model.FileStreamer, url string) error {
 	var defaultChunkSize = d.ChunkSize * 1024 * 1024
 	var offset int64 = 0
-	ss, err := stream.NewStreamSectionReader(file, int(defaultChunkSize), 1)
+	ss, err := stream.NewStreamSectionReader(file, int(defaultChunkSize))
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func (d *GoogleDrive) chunkUpload(ctx context.Context, file model.FileStreamer, 
 			return ctx.Err()
 		}
 		chunkSize := min(file.GetSize()-offset, defaultChunkSize)
-		reader, err := ss.GetSectionReader(offset, chunkSize, 0)
+		reader, err := ss.GetSectionReader(offset, chunkSize)
 		if err != nil {
 			return err
 		}

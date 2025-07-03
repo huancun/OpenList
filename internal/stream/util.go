@@ -143,50 +143,44 @@ func CacheFullInTempFileAndHash(stream model.FileStreamer, hashType *utils.HashT
 }
 
 type StreamSectionReader struct {
-	file      model.FileStreamer
-	off       int64
-	bufs      [][]byte
-	bufMaxLen int
-	m         sync.Mutex
+	file    model.FileStreamer
+	off     int64
+	m       sync.Mutex
+	bufPool *sync.Pool
 }
 
 // 单线程 thread 可以为0
-func NewStreamSectionReader(file model.FileStreamer, bufMaxLen, thread int) (*StreamSectionReader, error) {
-	ss := &StreamSectionReader{file: file, bufMaxLen: bufMaxLen}
+func NewStreamSectionReader(file model.FileStreamer, bufMaxLen int) (*StreamSectionReader, error) {
+	ss := &StreamSectionReader{file: file}
 	if file.GetFile() == nil {
-		if bufMaxLen > 64*utils.KB {
+		if bufMaxLen > 64*utils.MB {
 			_, err := file.CacheFullInTempFile()
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			ss.bufMaxLen = bufMaxLen
-			ss.bufs = make([][]byte, max(1, thread))
+			ss.bufPool = &sync.Pool{
+				New: func() any {
+					return make([]byte, bufMaxLen) // Two times of size in io package
+				},
+			}
 		}
 	}
 	return ss, nil
 }
 
-func (ss *StreamSectionReader) getBuf(index int) []byte {
-	index = index % len(ss.bufs)
-	buf := ss.bufs[index]
-	if buf == nil {
-		buf = make([]byte, ss.bufMaxLen)
-		ss.bufs[index] = buf
-	}
-	return buf
-}
-
 // 单线程 index 可以为0
-func (ss *StreamSectionReader) GetSectionReader(off, length int64, index int) (io.ReadSeeker, error) {
+func (ss *StreamSectionReader) GetSectionReader(off, length int64) (io.ReadSeeker, error) {
 	ss.m.Lock()
 	defer ss.m.Unlock()
 	var cache io.ReaderAt = ss.file.GetFile()
+	var buf []byte
 	if cache == nil {
 		if off != ss.off {
 			return nil, fmt.Errorf("stream not cached: request offset %d != current offset %d", off, ss.off)
 		}
-		buf := ss.getBuf(index)[:length]
+		tempBuf := ss.bufPool.Get().([]byte)
+		buf = tempBuf[:length]
 		n, err := io.ReadFull(ss.file, buf)
 		if err != nil {
 			return nil, err
@@ -198,5 +192,22 @@ func (ss *StreamSectionReader) GetSectionReader(off, length int64, index int) (i
 		off = 0
 		cache = bytes.NewReader(buf)
 	}
-	return io.NewSectionReader(cache, off, length), nil
+	return &SectionReader{io.NewSectionReader(cache, off, length), buf}, nil
+}
+
+func (ss *StreamSectionReader) RecycleSectionReader(rs io.ReadSeeker) {
+	ss.m.Lock()
+	defer ss.m.Unlock()
+	if sr, ok := rs.(*SectionReader); ok {
+		if sr.buf != nil {
+			ss.bufPool.Put(sr.buf)
+			sr.buf = nil
+		}
+		sr.ReadSeeker = nil
+	}
+}
+
+type SectionReader struct {
+	io.ReadSeeker
+	buf []byte
 }

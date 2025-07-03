@@ -87,7 +87,7 @@ func (d *Pan123) newUpload(ctx context.Context, upReq *UploadResp, file model.Fi
 		batchSize = 10
 		getS3UploadUrl = d.getS3PreSignedUrls
 	}
-	ss, err := stream.NewStreamSectionReader(file, int(chunkSize), 1)
+	ss, err := stream.NewStreamSectionReader(file, int(chunkSize))
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (d *Pan123) newUpload(ctx context.Context, upReq *UploadResp, file model.Fi
 			if j == chunkCount {
 				curSize = lastChunkSize
 			}
-			reader, err := ss.GetSectionReader(chunkSize*int64(j-1), curSize, j)
+			reader, err := ss.GetSectionReader(chunkSize*int64(j-1), curSize)
 			if err != nil {
 				return err
 			}
@@ -118,6 +118,7 @@ func (d *Pan123) newUpload(ctx context.Context, upReq *UploadResp, file model.Fi
 			if err != nil {
 				return err
 			}
+			ss.RecycleSectionReader(reader)
 			up(float64(j) * 100 / float64(chunkCount))
 		}
 	}
