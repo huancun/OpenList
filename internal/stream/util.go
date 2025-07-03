@@ -150,6 +150,7 @@ type StreamSectionReader struct {
 	m         sync.Mutex
 }
 
+// 单线程 thread 可以为0
 func NewStreamSectionReader(file model.FileStreamer, bufMaxLen, thread int) (*StreamSectionReader, error) {
 	ss := &StreamSectionReader{file: file, bufMaxLen: bufMaxLen}
 	if file.GetFile() == nil {
@@ -175,6 +176,8 @@ func (ss *StreamSectionReader) getBuf(index int) []byte {
 	}
 	return buf
 }
+
+// 单线程 index 可以为0
 func (ss *StreamSectionReader) GetSectionReader(off, length int64, index int) (io.ReadSeeker, error) {
 	ss.m.Lock()
 	defer ss.m.Unlock()
