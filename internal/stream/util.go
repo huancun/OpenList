@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/net"
 	"github.com/OpenListTeam/OpenList/v4/pkg/http_range"
@@ -152,7 +153,7 @@ type StreamSectionReader struct {
 func NewStreamSectionReader(file model.FileStreamer, bufMaxLen int) (*StreamSectionReader, error) {
 	ss := &StreamSectionReader{file: file}
 	if file.GetFile() == nil {
-		if bufMaxLen > 64*utils.MB {
+		if bufMaxLen > conf.MaxBufferLimit {
 			_, err := file.CacheFullInTempFile()
 			if err != nil {
 				return nil, err
