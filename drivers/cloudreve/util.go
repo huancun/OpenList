@@ -260,12 +260,11 @@ func (d *Cloudreve) upRemote(ctx context.Context, stream model.FileStreamer, u U
 		err = retry.Do(
 			func() error {
 				rd.Seek(0, io.SeekStart)
-				req, err := http.NewRequest("POST", uploadUrl+"?chunk="+strconv.Itoa(chunk),
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadUrl+"?chunk="+strconv.Itoa(chunk),
 					driver.NewLimitedUploadStream(ctx, rd))
 				if err != nil {
 					return err
 				}
-				req = req.WithContext(ctx)
 				req.ContentLength = byteSize
 				req.Header.Set("Authorization", fmt.Sprint(credential))
 				req.Header.Set("User-Agent", d.getUA())
@@ -328,11 +327,10 @@ func (d *Cloudreve) upOneDrive(ctx context.Context, stream model.FileStreamer, u
 		err = retry.Do(
 			func() error {
 				rd.Seek(0, io.SeekStart)
-				req, err := http.NewRequest("PUT", uploadUrl, driver.NewLimitedUploadStream(ctx, rd))
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadUrl, driver.NewLimitedUploadStream(ctx, rd))
 				if err != nil {
 					return err
 				}
-				req = req.WithContext(ctx)
 				req.ContentLength = byteSize
 				req.Header.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", finish, finish+byteSize-1, stream.GetSize()))
 				req.Header.Set("User-Agent", d.getUA())
@@ -391,12 +389,11 @@ func (d *Cloudreve) upS3(ctx context.Context, stream model.FileStreamer, u Uploa
 		err = retry.Do(
 			func() error {
 				rd.Seek(0, io.SeekStart)
-				req, err := http.NewRequest("PUT", u.UploadURLs[chunk],
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, u.UploadURLs[chunk],
 					driver.NewLimitedUploadStream(ctx, rd))
 				if err != nil {
 					return err
 				}
-				req = req.WithContext(ctx)
 				req.ContentLength = byteSize
 				req.Header.Set("User-Agent", d.getUA())
 				res, err := base.HttpClient.Do(req)
@@ -438,8 +435,8 @@ func (d *Cloudreve) upS3(ctx context.Context, stream model.FileStreamer, u Uploa
 		))
 	}
 	bodyBuilder.WriteString("</CompleteMultipartUpload>")
-	req, err := http.NewRequest(
-		"POST",
+	req, err := http.NewRequestWithContext(ctx,
+		http.MethodPost,
 		u.CompleteURL,
 		strings.NewReader(bodyBuilder.String()),
 	)

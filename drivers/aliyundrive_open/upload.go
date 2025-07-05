@@ -69,7 +69,7 @@ func (d *AliyundriveOpen) uploadPart(ctx context.Context, r io.Reader, partInfo 
 	if d.InternalUpload {
 		uploadUrl = strings.ReplaceAll(uploadUrl, "https://cn-beijing-data.aliyundrive.net/", "http://ccp-bj29-bj-1592982087.oss-cn-beijing-internal.aliyuncs.com/")
 	}
-	req, err := http.NewRequestWithContext(ctx, "PUT", uploadUrl, r)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadUrl, r)
 	if err != nil {
 		return err
 	}

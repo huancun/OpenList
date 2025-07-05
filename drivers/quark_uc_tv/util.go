@@ -136,7 +136,7 @@ func (d *QuarkUCTV) getCode(ctx context.Context) (string, error) {
 
 func (d *QuarkUCTV) getRefreshTokenByTV(ctx context.Context, code string, isRefresh bool) error {
 	pathname := "/token"
-	_, _, reqID := d.generateReqSign("POST", pathname, d.conf.signKey)
+	_, _, reqID := d.generateReqSign(http.MethodPost, pathname, d.conf.signKey)
 	u := d.conf.codeApi + pathname
 	var resp RefreshTokenAuthResp
 	body := map[string]string{

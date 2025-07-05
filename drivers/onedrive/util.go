@@ -259,11 +259,10 @@ func (d *Onedrive) upBig(ctx context.Context, dstDir model.Obj, stream model.Fil
 		err = retry.Do(
 			func() error {
 				rd.Seek(0, io.SeekStart)
-				req, err := http.NewRequest("PUT", uploadUrl, driver.NewLimitedUploadStream(ctx, rd))
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadUrl, driver.NewLimitedUploadStream(ctx, rd))
 				if err != nil {
 					return err
 				}
-				req = req.WithContext(ctx)
 				req.ContentLength = byteSize
 				req.Header.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", finish, finish+byteSize-1, stream.GetSize()))
 				res, err := base.HttpClient.Do(req)

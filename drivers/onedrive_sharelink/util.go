@@ -290,7 +290,7 @@ func (d *OnedriveSharelink) getFiles(path string) ([]Item, error) {
 
 	client := &http.Client{}
 	postUrl := strings.Join(redirectSplitURL[:len(redirectSplitURL)-3], "/") + "/_api/v2.1/graphql"
-	req, err = http.NewRequest("POST", postUrl, strings.NewReader(graphqlVar))
+	req, err = http.NewRequest(http.MethodPost, postUrl, strings.NewReader(graphqlVar))
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +323,7 @@ func (d *OnedriveSharelink) getFiles(path string) ([]Item, error) {
 
 		graphqlReqNEW := GraphQLNEWRequest{}
 		postUrl = strings.Join(redirectSplitURL[:len(redirectSplitURL)-3], "/") + "/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream" + nextHref
-		req, _ = http.NewRequest("POST", postUrl, strings.NewReader(renderListDataAsStreamVar))
+		req, _ = http.NewRequest(http.MethodPost, postUrl, strings.NewReader(renderListDataAsStreamVar))
 		req.Header = tempHeader
 
 		resp, err := client.Do(req)
@@ -339,7 +339,7 @@ func (d *OnedriveSharelink) getFiles(path string) ([]Item, error) {
 		for graphqlReqNEW.ListData.NextHref != "" {
 			graphqlReqNEW = GraphQLNEWRequest{}
 			postUrl = strings.Join(redirectSplitURL[:len(redirectSplitURL)-3], "/") + "/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream" + nextHref
-			req, _ = http.NewRequest("POST", postUrl, strings.NewReader(renderListDataAsStreamVar))
+			req, _ = http.NewRequest(http.MethodPost, postUrl, strings.NewReader(renderListDataAsStreamVar))
 			req.Header = tempHeader
 			resp, err := client.Do(req)
 			if err != nil {

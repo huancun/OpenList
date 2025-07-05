@@ -115,11 +115,10 @@ func (d *Open123) Upload(ctx context.Context, file model.FileStreamer, createRes
 				return err
 			}
 
-			req, err := http.NewRequestWithContext(ctx, "PUT", uploadPartUrl, rateLimitedRd)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadPartUrl, rateLimitedRd)
 			if err != nil {
 				return err
 			}
-			req = req.WithContext(ctx)
 			req.ContentLength = size
 
 			res, err := base.HttpClient.Do(req)
