@@ -139,7 +139,7 @@ func (d *Pan123) newUpload(ctx context.Context, upReq *UploadResp, file model.Fi
 					return fmt.Errorf("upload url is empty, s3PreSignedUrls: %+v", s3PreSignedUrls)
 				}
 				reader.Seek(0, io.SeekStart)
-				req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadUrl, rateLimitedRd)
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadUrl, rateLimitedRd)
 				if err != nil {
 					return err
 				}

@@ -93,7 +93,7 @@ func (d *QuarkUCTV) getLoginCode(ctx context.Context) (string, error) {
 		QrData     string `json:"qr_data"`
 		QueryToken string `json:"query_token"`
 	}
-	_, err := d.request(ctx, pathname, "GET", func(req *resty.Request) {
+	_, err := d.request(ctx, pathname, http.MethodGet, func(req *resty.Request) {
 		req.SetQueryParams(map[string]string{
 			"auth_type": "code",
 			"client_id": d.conf.clientID,
@@ -121,7 +121,7 @@ func (d *QuarkUCTV) getCode(ctx context.Context) (string, error) {
 		CommonRsp
 		Code string `json:"code"`
 	}
-	_, err := d.request(ctx, pathname, "GET", func(req *resty.Request) {
+	_, err := d.request(ctx, pathname, http.MethodGet, func(req *resty.Request) {
 		req.SetQueryParams(map[string]string{
 			"client_id":   d.conf.clientID,
 			"scope":       "netdisk",

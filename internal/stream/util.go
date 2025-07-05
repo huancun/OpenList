@@ -67,7 +67,7 @@ func RequestRangedHttp(ctx context.Context, link *model.Link, offset, length int
 	header := net.ProcessHeader(nil, link.Header)
 	header = http_range.ApplyRangeToHttpHeader(http_range.Range{Start: offset, Length: length}, header)
 
-	return net.RequestHttp(ctx, "GET", header, link.URL)
+	return net.RequestHttp(ctx, http.MethodGet, header, link.URL)
 }
 
 // 139 cloud does not properly return 206 http status code, add a hack here

@@ -557,7 +557,7 @@ type chunk struct {
 func DefaultHttpRequestFunc(ctx context.Context, params *HttpRequestParams) (*http.Response, error) {
 	header := http_range.ApplyRangeToHttpHeader(params.Range, params.HeaderRef)
 
-	res, err := RequestHttp(ctx, "GET", header, params.URL)
+	res, err := RequestHttp(ctx, http.MethodGet, header, params.URL)
 	if err != nil {
 		return res, err
 	}
