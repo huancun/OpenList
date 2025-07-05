@@ -14,6 +14,7 @@ import (
 
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 	"github.com/OpenListTeam/OpenList/v4/internal/stream"
+	"github.com/avast/retry-go"
 
 	"github.com/OpenListTeam/OpenList/v4/drivers/base"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
@@ -260,6 +261,7 @@ func (d *GoogleDrive) chunkUpload(ctx context.Context, file model.FileStreamer, 
 	if err != nil {
 		return err
 	}
+	url += "?includeItemsFromAllDrives=true&supportsAllDrives=true"
 	for offset < file.GetSize() {
 		if utils.IsCanceled(ctx) {
 			return ctx.Err()
@@ -270,13 +272,40 @@ func (d *GoogleDrive) chunkUpload(ctx context.Context, file model.FileStreamer, 
 			return err
 		}
 		limitedReader := driver.NewLimitedUploadStream(ctx, reader)
-		_, err = d.request(url, http.MethodPut, func(req *resty.Request) {
+		err = retry.Do(func() error {
 			reader.Seek(0, io.SeekStart)
-			req.SetHeaders(map[string]string{
-				"Content-Length": strconv.FormatInt(chunkSize, 10),
-				"Content-Range":  fmt.Sprintf("bytes %d-%d/%d", offset, offset+chunkSize-1, file.GetSize()),
-			}).SetBody(limitedReader).SetContext(ctx)
-		}, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPut, url,
+				limitedReader)
+			if err != nil {
+				return err
+			}
+			req.Header = map[string][]string{
+				"Authorization":  {"Bearer " + d.AccessToken},
+				"Content-Length": {strconv.FormatInt(chunkSize, 10)},
+				"Content-Range":  {fmt.Sprintf("bytes %d-%d/%d", offset, offset+chunkSize-1, file.GetSize())},
+			}
+			res, err := base.HttpClient.Do(req)
+			if err != nil {
+				return err
+			}
+			defer res.Body.Close()
+			bytes, _ := io.ReadAll(res.Body)
+			var e Error
+			utils.Json.Unmarshal(bytes, &e)
+			if e.Error.Code != 0 {
+				if e.Error.Code == 401 {
+					err = d.refreshToken()
+					if err != nil {
+						return err
+					}
+				}
+				return fmt.Errorf("%s: %v", e.Error.Message, e.Error.Errors)
+			}
+			return nil
+		},
+			retry.Attempts(3),
+			retry.DelayType(retry.BackOffDelay),
+			retry.Delay(time.Second))
 		if err != nil {
 			return err
 		}
