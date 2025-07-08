@@ -130,7 +130,7 @@ func (d *Open115) multpartUpload(ctx context.Context, stream model.FileStreamer,
 		} else {
 			offset += partSize
 		}
-		up(float64(offset) / float64(fileSize))
+		up(float64(offset) * 100 / float64(fileSize))
 	}
 
 	// callbackRespBytes := make([]byte, 1024)
