@@ -41,7 +41,7 @@ func GetRangeReaderFromLink(size int64, link *model.Link) (model.RangeReaderIF, 
 					Size:  size,
 				}
 			} else {
-				requestHeader, _ := ctx.Value(net.RequestHeaderKey{}).(http.Header)
+				requestHeader, _ := ctx.Value(conf.RequestHeaderKey).(http.Header)
 				header := net.ProcessHeader(requestHeader, link.Header)
 				req = &net.HttpRequestParams{
 					Range:     httpRange,
@@ -70,7 +70,7 @@ func GetRangeReaderFromLink(size int64, link *model.Link) (model.RangeReaderIF, 
 		if httpRange.Length < 0 || httpRange.Start+httpRange.Length > size {
 			httpRange.Length = size - httpRange.Start
 		}
-		requestHeader, _ := ctx.Value(net.RequestHeaderKey{}).(http.Header)
+		requestHeader, _ := ctx.Value(conf.RequestHeaderKey).(http.Header)
 		header := net.ProcessHeader(requestHeader, link.Header)
 		header = http_range.ApplyRangeToHttpHeader(httpRange, header)
 
