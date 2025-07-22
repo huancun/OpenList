@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -37,8 +38,8 @@ func FilteredLoggerWithConfig(config FilteredLoggerConfig) gin.HandlerFunc {
 				return ""
 			}
 
-			// Use the default Gin log format for other requests
-			return gin.DefaultLogFormatter(param)
+			// Use a custom log format similar to Gin's default
+			return defaultLogFormatter(param)
 		},
 	})
 }
@@ -91,4 +92,28 @@ func shouldSkipLogging(path, method string, config FilteredLoggerConfig) bool {
 	}
 
 	return false
+}
+
+// defaultLogFormatter provides a default log format similar to Gin's built-in formatter
+func defaultLogFormatter(param gin.LogFormatterParams) string {
+	var statusColor, methodColor, resetColor string
+	if param.IsOutputColor() {
+		statusColor = param.StatusCodeColor()
+		methodColor = param.MethodColor()
+		resetColor = param.ResetColor()
+	}
+
+	if param.Latency > time.Minute {
+		param.Latency = param.Latency.Truncate(time.Second)
+	}
+
+	return fmt.Sprintf("[GIN] %v |%s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s",
+		param.TimeStamp.Format("2006/01/02 - 15:04:05"),
+		statusColor, param.StatusCode, resetColor,
+		param.Latency,
+		param.ClientIP,
+		methodColor, param.Method, resetColor,
+		param.Path,
+		param.ErrorMessage,
+	)
 }
