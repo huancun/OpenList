@@ -31,8 +31,14 @@ RUN apk update && \
         mkdir -p /opt/service/aria2/log && \
         echo '#!/bin/sh' > /opt/service/aria2/run && \
         echo 'exec 2>&1' >> /opt/service/aria2/run && \
+        echo 'if [ "$RUN_ARIA2" != "true" ]; then' >> /opt/service/aria2/run && \
+        echo '    exit 0' >> /opt/service/aria2/run && \
+        echo 'fi' >> /opt/service/aria2/run && \
         echo 'exec aria2c --enable-rpc --rpc-allow-origin-all --conf-path=/opt/aria2/.aria2/aria2.conf' >> /opt/service/aria2/run && \
         echo '#!/bin/sh' > /opt/service/aria2/log/run && \
+        echo 'if [ "$RUN_ARIA2" != "true" ]; then' >> /opt/service/aria2/log/run && \
+        echo '    exit 0' >> /opt/service/aria2/log/run && \
+        echo 'fi' >> /opt/service/aria2/log/run && \
         echo 'mkdir -p /opt/openlist/data/log/aria2 2>/dev/null' >> /opt/service/aria2/log/run && \
         echo 'exec svlogd /opt/openlist/data/log/aria2' >> /opt/service/aria2/log/run && \
         chmod +x /opt/service/aria2/run /opt/service/aria2/log/run && \
