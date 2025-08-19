@@ -10,7 +10,7 @@ WORKDIR /opt/openlist/
 RUN mkdir -p /opt/openlist/data
 
 COPY --chmod=755  /build/${TARGETPLATFORM}/openlist ./
-COPY --chmod=755entrypoint.sh /entrypoint.sh
+COPY --chmod=755 entrypoint.sh /entrypoint.sh
 
 RUN /entrypoint.sh version
 
